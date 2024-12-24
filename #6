@@ -1,0 +1,36 @@
+#include <BluetoothSerial.h>
+#include <Servo.h>
+
+BluetoothSerial SerialBT;
+
+Servo fingerServo; // Example: one servo for demonstration
+String receivedMode = "";
+
+void setup() {
+  Serial.begin(115200);
+  SerialBT.begin("ProstheticArm"); // Bluetooth name
+  fingerServo.attach(9); // Attach servo to pin 9
+  fingerServo.write(0); // Initialize servo position to 0
+}
+
+void loop() {
+  if (SerialBT.available()) {
+    char receivedChar = SerialBT.read();
+    if (receivedChar == '\n') {
+      processMode(receivedMode);
+      receivedMode = ""; // Reset the mode string
+    } else {
+      receivedMode += receivedChar;
+    }
+  }
+}
+
+void processMode(String mode) {
+  if (mode == "Grip") {
+    fingerServo.write(90); // Move servo to grip position
+  } else if (mode == "Pinch") {
+    fingerServo.write(45); // Move servo to pinch position
+  } else if (mode == "Relax") {
+    fingerServo.write(0); // Relax position
+  }
+}
