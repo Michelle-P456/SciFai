@@ -1,0 +1,102 @@
+#include <BluetoothSerial.h>
+#include <Servo.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
+
+BluetoothSerial SerialBT;
+Adafruit_MPU6050 mpu;
+
+Servo fingerServo; // Finger movement
+Servo wristServo; // Wrist movement
+
+const int emgPin = A0; // EMG sensor analog pin
+const int forceSensorPin = A1; // Force sensor analog pin
+
+float emgThreshold = 300.0; // Adjust threshold based on user calibration
+int gripForce = 0; // Force sensor reading
+String receivedMode = "";
+
+void setup() {
+  Serial.begin(115200);
+  SerialBT.begin("ProstheticArm");
+
+  fingerServo.attach(9); // Attach finger servo to pin 9
+  wristServo.attach(10); // Attach wrist servo to pin 10
+  fingerServo.write(0); // Relax initial position
+  wristServo.write(90);
+
+  // Initialize MPU6050
+  if (!mpu.begin()) {
+    Serial.println("Failed to initialize MPU6050!");
+    while (1);
+  }
+  Serial.println("MPU6050 initialized successfully!");
+}
+
+void loop() {
+  // Bluetooth communication
+  if (SerialBT.available()) {
+    char receivedChar = SerialBT.read();
+    if (receivedChar == '\n') {
+      processMode(receivedMode);
+      receivedMode = ""; // Reset mode
+    } else {
+      receivedMode += receivedChar;
+    }
+  }
+
+  // Read EMG sensor data
+  int emgSignal = analogRead(emgPin);
+  if (emgSignal > emgThreshold) {
+    gripObject(); // Trigger grip based on muscle activation
+  }
+
+  // Read force sensor data
+  gripForce = analogRead(forceSensorPin);
+  adjustGripStrength(gripForce);
+
+  // Read IMU data for orientation
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  processIMUData(a.acceleration.x, a.acceleration.y, a.acceleration.z);
+}
+
+void processMode(String mode) {
+  if (mode == "Relax") {
+    fingerServo.write(0); // Relax position
+    wristServo.write(90); // Neutral wrist position
+  } else if (mode == "Sport (Throw)") {
+    wristServo.write(0); // Move wrist back for throwing
+    delay(500);
+    wristServo.write(90); // Snap wrist forward
+  } else if (mode == "Precision (Write)") {
+    fingerServo.write(30); // Adjust fingers for writing
+    wristServo.write(60); // Adjust wrist for writing position
+  }
+}
+
+void gripObject() {
+  fingerServo.write(90); // Close fingers
+  Serial.println("Grip triggered by EMG signal!");
+}
+
+void adjustGripStrength(int force) {
+  if (force > 500) { // Example threshold for strong grip
+    Serial.println("Grip too tight! Relaxing slightly.");
+    fingerServo.write(75); // Relax grip slightly
+  } else if (force < 200) { // Example threshold for weak grip
+    Serial.println("Grip too loose! Tightening slightly.");
+    fingerServo.write(95); // Tighten grip slightly
+  }
+}
+
+void processIMUData(float ax, float ay, float az) {
+  if (ax > 9.8) { // Example threshold for detecting a throw motion
+    Serial.println("Throw motion detected!");
+    wristServo.write(0); // Move wrist back
+    delay(500);
+    wristServo.write(90); // Snap wrist forward
+  }
+}
+```
