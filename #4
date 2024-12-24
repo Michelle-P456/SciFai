@@ -1,0 +1,49 @@
+#include <BluetoothSerial.h>
+#include <Servo.h>
+
+BluetoothSerial SerialBT;
+
+Servo fingerServo; // Example: one servo for gripping
+Servo wristServo; // Additional servo for wrist motion
+String receivedMode = "";
+
+void setup() {
+  Serial.begin(115200);
+  SerialBT.begin("ProstheticArm"); // Bluetooth name
+  fingerServo.attach(9); // Attach servo to pin 9 (finger)
+  wristServo.attach(10); // Attach servo to pin 10 (wrist)
+  fingerServo.write(0); // Initialize finger to relaxed position
+  wristServo.write(90); // Initialize wrist to neutral position
+}
+
+void loop() {
+  if (SerialBT.available()) {
+    char receivedChar = SerialBT.read();
+    if (receivedChar == '\n') {
+      processMode(receivedMode);
+      receivedMode = ""; // Reset the mode string
+    } else {
+      receivedMode += receivedChar;
+    }
+  }
+}
+
+void processMode(String mode) {
+  if (mode == "Relax") {
+    fingerServo.write(0); // Relax position
+    wristServo.write(90); // Neutral wrist position
+  } else if (mode == "Grip") {
+    fingerServo.write(90); // Close fingers for gripping
+  } else if (mode == "Pinch") {
+    fingerServo.write(45); // Adjust fingers for pinching
+  } else if (mode == "Sport (Throw)") {
+    wristServo.write(0); // Move wrist back for throwing
+    delay(500);
+    wristServo.write(90); // Snap wrist forward
+  } else if (mode == "Sport (Catch)") {
+    fingerServo.write(70); // Partially close fingers to catch
+  } else if (mode == "Precision (Write)") {
+    fingerServo.write(30); // Adjust fingers for holding a pen
+    wristServo.write(60); // Adjust wrist for writing position
+  }
+}
